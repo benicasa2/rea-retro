@@ -407,96 +407,45 @@ describe("Ghidra provider", () => {
 });
 
 describe("Ghidra raw-binary profile", () => {
-  it("admits raw 6502 on Windows and binds its 16-bit language without mutation authority", async () => {
-    const ghidra = provider(installationHost("win32"));
-    const target: BinaryTarget = {
-      path: "/tmp/6502.bin",
-      sha256: "a".repeat(64),
-      kind: "executable",
-      format: "raw-binary",
-      architecture: "6502",
-      availableArchitectures: ["6502"],
-      entryPoint: "0x8001",
-      entryPointSource: "0x008001",
-    };
-    expect(ghidra.inspectTargetSupport(target).status).toBe("supported");
-    const resolved = await ghidra.resolveAnalysisProfile(target);
-    if (!resolved.ok) throw resolved.error;
-    expect(resolved.value.profile?.parameters).toMatchObject({
-      architecture: "6502",
-      loader: "BinaryLoader",
-      language_id: "6502:LE:16:default",
-      compiler_spec_id: "default",
-      entry_point: "0x8001",
-      language_selection: "caller-supplied-v1",
-      load_image_evidence: "independent-raw-mapping-context-v4",
-    });
-    expect(
-      ghidra
-        .capabilities()
-        .some(({ available, effects }) => available && effects.mutatesArtifact),
-    ).toBe(false);
-  });
-  it("admits raw 6809 on Windows and binds its 16-bit language without mutation authority", async () => {
-    const ghidra = provider(installationHost("win32"));
-    const target: BinaryTarget = {
-      path: "/tmp/6809.bin",
-      sha256: "a".repeat(64),
-      kind: "executable",
-      format: "raw-binary",
-      architecture: "6809",
-      availableArchitectures: ["6809"],
-      entryPoint: "0x8001",
-      entryPointSource: "0x008001",
-    };
-    expect(ghidra.inspectTargetSupport(target).status).toBe("supported");
-    const resolved = await ghidra.resolveAnalysisProfile(target);
-    if (!resolved.ok) throw resolved.error;
-    expect(resolved.value.profile?.parameters).toMatchObject({
-      architecture: "6809",
-      loader: "BinaryLoader",
-      language_id: "6809:BE:16:default",
-      compiler_spec_id: "default",
-      entry_point: "0x8001",
-      language_selection: "caller-supplied-v1",
-      load_image_evidence: "independent-raw-mapping-context-v4",
-    });
-    expect(
-      ghidra
-        .capabilities()
-        .some(({ available, effects }) => available && effects.mutatesArtifact),
-    ).toBe(false);
-  });
-  it("admits raw z80 on Windows and binds its 16-bit language without mutation authority", async () => {
-    const ghidra = provider(installationHost("win32"));
-    const target: BinaryTarget = {
-      path: "/tmp/z80.bin",
-      sha256: "a".repeat(64),
-      kind: "executable",
-      format: "raw-binary",
-      architecture: "z80",
-      availableArchitectures: ["z80"],
-      entryPoint: "0x8001",
-      entryPointSource: "0x008001",
-    };
-    expect(ghidra.inspectTargetSupport(target).status).toBe("supported");
-    const resolved = await ghidra.resolveAnalysisProfile(target);
-    if (!resolved.ok) throw resolved.error;
-    expect(resolved.value.profile?.parameters).toMatchObject({
-      architecture: "z80",
-      loader: "BinaryLoader",
-      language_id: "z80:LE:16:default",
-      compiler_spec_id: "default",
-      entry_point: "0x8001",
-      language_selection: "caller-supplied-v1",
-      load_image_evidence: "independent-raw-mapping-context-v4",
-    });
-    expect(
-      ghidra
-        .capabilities()
-        .some(({ available, effects }) => available && effects.mutatesArtifact),
-    ).toBe(false);
-  });
+  it.each([
+    ["6502", "6502:LE:16:default", "0x8001"],
+    ["6809", "6809:BE:16:default", "0x8001"],
+    ["z80", "z80:LE:16:default", "0x8001"],
+  ] as const)(
+    "admits raw %s on Windows without mutation authority",
+    async (architecture, language, entry) => {
+      const ghidra = provider(installationHost("win32"));
+      const target: BinaryTarget = {
+        path: "/tmp/retro.bin",
+        sha256: "a".repeat(64),
+        kind: "executable",
+        format: "raw-binary",
+        architecture,
+        availableArchitectures: [architecture],
+        entryPoint: entry,
+        entryPointSource: entry,
+      };
+      expect(ghidra.inspectTargetSupport(target).status).toBe("supported");
+      const resolved = await ghidra.resolveAnalysisProfile(target);
+      if (!resolved.ok) throw resolved.error;
+      expect(resolved.value.profile?.parameters).toMatchObject({
+        architecture,
+        loader: "BinaryLoader",
+        language_id: language,
+        compiler_spec_id: "default",
+        language_selection: "caller-supplied-v1",
+        load_image_evidence: "independent-raw-mapping-context-v4",
+        entry_point: entry,
+      });
+      expect(
+        ghidra
+          .capabilities()
+          .some(
+            ({ available, effects }) => available && effects.mutatesArtifact,
+          ),
+      ).toBe(false);
+    },
+  );
   it("commits BinaryLoader language and caller-supplied entry", async () => {
     const ghidra = provider();
     const target: BinaryTarget = {
